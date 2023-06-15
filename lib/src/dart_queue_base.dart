@@ -1,12 +1,20 @@
 import 'dart:async';
+import 'dart:math';
 
 class _QueuedFuture<T> {
   final Completer completer;
   final Future<T> Function() closure;
   final Duration? timeout;
   Function? onComplete;
+  final QueueItemId id;
 
-  _QueuedFuture(this.closure, this.completer, this.timeout, {this.onComplete});
+  _QueuedFuture(
+    this.closure,
+    this.completer,
+    this.timeout,
+    this.id, {
+    this.onComplete,
+  });
 
   bool _timedOut = false;
 
@@ -40,6 +48,8 @@ class _QueuedFuture<T> {
     }
   }
 }
+
+typedef QueueItemId = String;
 
 /// Queue to execute Futures in order.
 /// It awaits each future before executing the next one.
@@ -81,8 +91,6 @@ class Queue {
     return completer.future;
   }
 
-  @Deprecated(
-      "v4 - listen to the [remainingItems] stream to listen to queue status")
   Set<int> activeItems = {};
 
   /// Cancels the queue. Also cancels any unprocessed items throwing a [QueueCancelledException]
@@ -114,13 +122,21 @@ class Queue {
   /// by preceding closures have been awaited.
   ///
   /// Will throw an exception if the queue has been cancelled.
-  Future<T> add<T>(Future<T> Function() closure) {
+  Future<T> add<T>(Future<T> Function() closure, {QueueItemId? id}) {
     if (isCancelled) throw QueueCancelledException();
     final completer = Completer<T>();
-    _nextCycle.add(_QueuedFuture<T>(closure, completer, timeout));
+    id ??= _generateId();
+    _nextCycle.add(_QueuedFuture<T>(closure, completer, timeout, id));
     _updateRemainingItems();
     unawaited(_process());
     return completer.future;
+  }
+
+  T remove<T>(QueueItemId id) {
+    final item = _nextCycle.firstWhere((item) => item.id == id);
+    _nextCycle.remove(item);
+    _updateRemainingItems();
+    return item.completer.future as T;
   }
 
   /// Handles the number of parallel tasks firing at any one time
@@ -178,3 +194,12 @@ class QueueCancelledException implements Exception {}
 
 // Don't throw analysis error on unawaited future.
 void unawaited(Future<void> future) {}
+
+String _generateId() {
+  final random = Random();
+  final codeUnits = List.generate(10, (index) {
+    return random.nextInt(33) + 89;
+  });
+
+  return String.fromCharCodes(codeUnits);
+}

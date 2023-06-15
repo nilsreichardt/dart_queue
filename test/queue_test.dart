@@ -233,6 +233,35 @@ void main() {
     expect(errors.first is QueueCancelledException, true);
   });
 
+  test('should remove', () async {
+    final queue = Queue();
+    final results = <String?>[];
+    final errors = <Exception>[];
+
+    unawaited(Future.wait([
+      queue
+          .add(() async {
+            await Future.delayed(const Duration(milliseconds: 10));
+            return "result 1";
+          }, id: '1')
+          .then((result) => results.add(result))
+          .catchError((err) => errors.add(err)),
+      queue
+          .add(() async {
+            await Future.delayed(const Duration(milliseconds: 10));
+            return "result 2";
+          }, id: '2')
+          .then((result) => results.add(result))
+          .catchError((err) => errors.add(err)),
+    ]));
+
+    await Future.delayed(const Duration(milliseconds: 5));
+    queue.remove('2');
+    await queue.onComplete;
+    expect(results.length, 1);
+    expect(errors.length, 0);
+  });
+
   test("timed out queue item still completes", () async {
     final queue = Queue(timeout: const Duration(milliseconds: 10));
 
