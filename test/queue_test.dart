@@ -262,6 +262,34 @@ void main() {
     expect(errors.length, 0);
   });
 
+  test('should check if queue contains item', () async {
+    final queue = Queue();
+    final results = <String?>[];
+    final errors = <Exception>[];
+
+    unawaited(Future.wait([
+      queue
+          .add(() async {
+            await Future.delayed(const Duration(milliseconds: 10));
+            return "result 1";
+          }, id: '1')
+          .then((result) => results.add(result))
+          .catchError((err) => errors.add(err)),
+      queue
+          .add(() async {
+            await Future.delayed(const Duration(milliseconds: 10));
+            return "result 2";
+          }, id: '2')
+          .then((result) => results.add(result))
+          .catchError((err) => errors.add(err)),
+    ]));
+
+    await Future.delayed(const Duration(milliseconds: 5));
+    expect(queue.contains('1'), false); // Item is currently running
+    expect(queue.contains('2'), true);
+    expect(queue.contains('3'), false);
+  });
+
   test("timed out queue item still completes", () async {
     final queue = Queue(timeout: const Duration(milliseconds: 10));
 

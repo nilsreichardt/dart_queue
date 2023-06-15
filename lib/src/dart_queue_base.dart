@@ -132,6 +132,14 @@ class Queue {
     return completer.future;
   }
 
+  /// Returns if an item with the given id is in the queue.
+  ///
+  /// This will return false if the item is currently being processed. Only items that are queued up will return true.
+  bool contains(QueueItemId id) {
+    return _nextCycle.any((item) => item.id == id);
+  }
+
+  /// Removes an item from the queue.
   T remove<T>(QueueItemId id) {
     final item = _nextCycle.firstWhere((item) => item.id == id);
     _nextCycle.remove(item);
